@@ -1,7 +1,7 @@
 (() => {
   const ROOT_ID = "digiprice-extension-root";
   function getProductId() {
-    const match = location.pathname.match(/(?:dkp-|\\/product\\/)(\\d{1,10})/i);
+    const match = location.pathname.match(/(?:dkp-|\/product\/)(\d{1,10})/i);
     return match?.[1] || null;
   }
   let productId = getProductId();
