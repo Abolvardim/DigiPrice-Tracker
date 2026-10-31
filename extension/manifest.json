@@ -1,9 +1,11 @@
 {
   "manifest_version": 3,
   "name": "DigiPrice — Digikala Price History",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Shows available Digikala price history directly on product pages.",
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "https://www.digikala.com/*",
     "https://api.github.com/*",
@@ -18,8 +20,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.digikala.com/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://www.digikala.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ]
