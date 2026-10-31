@@ -46,8 +46,30 @@ async function digikala(path, params) {
     redirect: "manual",
   });
   if (response.status >= 300 && response.status < 400) {
-    const location = response.headers.get("Location") || "(no Location header)";
-    throw new Error(`Digikala redirect diagnostic: HTTP ${response.status}; Location: ${location}`);
+    const diagnosticHeaders = {};
+    for (const name of ["location", "retry-after", "server", "cf-ray", "content-type", "via", "x-cache"]) {
+      const value = response.headers.get(name);
+      if (value) diagnosticHeaders[name] = value;
+    }
+    throw new Error(JSON.stringify({
+      type: "upstream_redirect",
+      status: response.status,
+      url: url.toString(),
+      headers: diagnosticHeaders
+    }));
+  }
+  if (response.status === 429) {
+    const diagnosticHeaders = {};
+    for (const name of ["retry-after", "server", "cf-ray", "content-type", "via", "x-cache"]) {
+      const value = response.headers.get(name);
+      if (value) diagnosticHeaders[name] = value;
+    }
+    throw new Error(JSON.stringify({
+      type: "upstream_rate_limited",
+      status: response.status,
+      url: url.toString(),
+      headers: diagnosticHeaders
+    }));
   }
   const bodyText = await response.text();
   let body;
