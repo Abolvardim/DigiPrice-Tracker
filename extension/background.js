@@ -2,6 +2,7 @@ const API_ROOT = "https://api.digikala.com/v1/product/";
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const cache = new Map();
 const inFlight = new Map();
+const cooldowns = new Map();
 
 function extractProductId(value) {
   const text = String(value || "").trim();
@@ -16,6 +17,12 @@ async function loadHistory(rawId) {
 
   const cached = cache.get(id);
   if (cached && Date.now() - cached.savedAt < CACHE_TTL_MS) return cached.data;
+
+  const blockedUntil = cooldowns.get(id) || 0;
+  if (Date.now() < blockedUntil) {
+    const seconds = Math.ceil((blockedUntil - Date.now()) / 1000);
+    throw new Error("درخواست این محصول به‌دلیل محدودیت دیجی‌کالا موقتاً متوقف شده است. حدود " + seconds + " ثانیه صبر کن و سپس دوباره امتحان کن.");
+  }
   if (inFlight.has(id)) return inFlight.get(id);
 
   const task = (async () => {
@@ -38,7 +45,17 @@ async function loadHistory(rawId) {
     }
 
     if (response.status === 429) {
-      throw new Error("دیجی‌کالا موقتاً درخواست‌های تاریخچه را محدود کرده است (429). کمی بعد دوباره امتحان کن.");
+      const retryAfter = response.headers.get("Retry-After");
+      let waitMs = 60 * 1000;
+      if (retryAfter) {
+        const seconds = Number(retryAfter);
+        const dateMs = Date.parse(retryAfter);
+        if (Number.isFinite(seconds) && seconds > 0) waitMs = seconds * 1000;
+        else if (Number.isFinite(dateMs) && dateMs > Date.now()) waitMs = dateMs - Date.now();
+      }
+      waitMs = Math.min(Math.max(waitMs, 30 * 1000), 60 * 60 * 1000);
+      cooldowns.set(id, Date.now() + waitMs);
+      throw new Error("دیجی‌کالا درخواست تاریخچه را محدود کرده است (HTTP 429). برای جلوگیری از تشدید محدودیت، تا حدود " + Math.ceil(waitMs / 1000) + " ثانیه برای این محصول درخواست تازه نمی‌فرستیم.");
     }
     if (!response.ok) {
       throw new Error("پاسخ ناموفق از دیجی‌کالا: HTTP " + response.status);
