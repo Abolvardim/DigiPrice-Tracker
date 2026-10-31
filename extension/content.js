@@ -1,8 +1,11 @@
 (() => {
   const ROOT_ID = "digiprice-extension-root";
-  const ID_MATCH = location.pathname.match(/(?:dkp-|\/product\/)(\d{1,10})/i);
-  const productId = ID_MATCH?.[1];
-  if (!productId || document.getElementById(ROOT_ID)) return;
+  function getProductId() {
+    const match = location.pathname.match(/(?:dkp-|\\/product\\/)(\\d{1,10})/i);
+    return match?.[1] || null;
+  }
+  let productId = getProductId();
+  if (document.getElementById(ROOT_ID)) return;
 
   const host = document.createElement("section");
   host.id = ROOT_ID;
@@ -162,7 +165,11 @@
   reloadEl.addEventListener("click", load);
 
   function mount() {
-    if (document.getElementById(ROOT_ID)) return;
+    if (!productId) {
+      document.getElementById(ROOT_ID)?.remove();
+      return false;
+    }
+    if (document.getElementById(ROOT_ID)) return true;
     const candidates = [
       document.querySelector("main"),
       document.querySelector("[data-testid*='product']"),
@@ -179,11 +186,33 @@
     return false;
   }
 
-  if (!mount()) {
+  if (productId && !mount()) {
     const observer = new MutationObserver(() => {
       if (mount()) observer.disconnect();
     });
     observer.observe(document.documentElement,{childList:true,subtree:true});
     setTimeout(()=>observer.disconnect(),15000);
   }
+
+  // Digikala can change product routes without a full page reload.
+  let previousProductId = productId;
+  setInterval(() => {
+    const nextProductId = getProductId();
+    if (nextProductId === previousProductId) return;
+    previousProductId = nextProductId;
+    productId = nextProductId;
+    historyData = null;
+    if (!productId) {
+      host.remove();
+      return;
+    }
+    if (host.isConnected) load();
+    else if (!mount()) {
+      const observer = new MutationObserver(() => {
+        if (mount()) observer.disconnect();
+      });
+      observer.observe(document.documentElement,{childList:true,subtree:true});
+      setTimeout(()=>observer.disconnect(),15000);
+    }
+  }, 800);
 })();
