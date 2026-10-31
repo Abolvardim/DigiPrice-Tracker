@@ -63,3 +63,21 @@ Cloudflare's published Free allowance is 100,000 Worker requests per day and 10 
 - `GET /api/product?id=20109389` — product API data.
 
 The Worker allows browser requests only from `https://abolvardim.github.io`. It does not require Digikala login, credentials, or a VPN. Upstream availability can still change if Digikala blocks or modifies its public API.
+
+
+## Vercel upstream connectivity probe (diagnostic only)
+
+The Cloudflare Worker could not retrieve a valid upstream response in the initial test. A minimal Vercel Edge Function is therefore included as an alternative egress test. It is **not yet the production API** and does not imply that Vercel can reach Digikala.
+
+### Deploy the probe
+
+1. Sign in to Vercel and import `Abolvardim/DigiPrice-Tracker` from GitHub.
+2. Keep the project on the **Hobby** plan. Do not add paid services or enable paid add-ons.
+3. Use the repository root as the project root and deploy with the default settings.
+4. After deployment, open:
+   `https://YOUR-VERCEL-DOMAIN/api/probe?id=20109389`
+5. Repeat with a few unrelated product IDs, for example `20110013` and `4369031`.
+
+A successful result contains `"ok": true`, HTTP 200 from Digikala, and one or more variants with history points. A 403, 429, redirect, timeout, or other error means this hosting route is not currently suitable as the live backend. Do not interpret a successful deployment/build as a successful upstream connection.
+
+The endpoint is intentionally a narrow diagnostic: it accepts only a numeric product ID, calls only Digikala's price-chart endpoint, and returns a compact summary rather than proxying arbitrary URLs.
