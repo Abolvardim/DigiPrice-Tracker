@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>تنظیمات DigiPrice</title>
+<style>
+body{font-family:Tahoma,Arial,sans-serif;background:#f6f7f9;color:#202124;margin:0;padding:32px 16px}
+main{max-width:620px;margin:auto;background:#fff;border:1px solid #e2e5e9;border-radius:14px;padding:24px}
+h1{font-size:20px;margin-top:0}p{font-size:14px;line-height:2;color:#555}
+label{display:block;font-size:13px;font-weight:bold;margin:18px 0 8px}
+input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #ccd1d8;border-radius:8px;font:14px Arial}
+button{margin-top:14px;padding:10px 18px;border:0;border-radius:8px;background:#1769aa;color:white;font:14px Tahoma;cursor:pointer}
+#status{margin-top:14px;font-size:13px;line-height:1.8}
+.note{background:#f4f6f8;border-radius:8px;padding:12px}
+</style>
+</head>
+<body><main>
+<h1>تنظیمات DigiPrice</h1>
+<p>برای دریافت تاریخچه از GitHub Actions، یک Fine-grained token بساز که فقط به مخزن <b>Abolvardim/DigiPrice-Tracker</b> دسترسی داشته باشد و مجوزهای <b>Actions: Read and write</b> و <b>Contents: Read and write</b> داشته باشد.</p>
+<label for="token">GitHub token</label>
+<input id="token" type="password" autocomplete="off" placeholder="github_pat_…">
+<button id="save">ذخیره و بررسی اتصال</button>
+<div id="status" role="status"></div>
+<p class="note">توکن فقط در فضای ذخیره‌سازی محلی افزونه در همین مرورگر نگهداری می‌شود. آن را در چت یا جای دیگری ارسال نکن. برای لغو دسترسی، هر زمان می‌توانی توکن را از GitHub باطل کنی.</p>
+</main><script src="options.js"></script></body></html>
