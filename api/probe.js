@@ -1,3 +1,5 @@
+export const config = { runtime: "edge" };
+
 const API = "https://api.digikala.com";
 const ALLOWED_ORIGIN = "https://abolvardim.github.io";
 
