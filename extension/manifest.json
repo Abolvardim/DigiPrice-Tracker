@@ -1,24 +1,25 @@
 {
   "manifest_version": 3,
   "name": "DigiPrice — Digikala Price History",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Shows available Digikala price history directly on product pages.",
-  "permissions": [],
+  "permissions": ["storage"],
   "host_permissions": [
     "https://www.digikala.com/*",
-    "https://api.digikala.com/*"
+    "https://api.github.com/*",
+    "https://raw.githubusercontent.com/Abolvardim/DigiPrice-Tracker/*"
   ],
   "background": {
     "service_worker": "background.js"
   },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "content_scripts": [
     {
-      "matches": [
-        "https://www.digikala.com/*"
-      ],
-      "js": [
-        "content.js"
-      ],
+      "matches": ["https://www.digikala.com/*"],
+      "js": ["content.js"],
       "run_at": "document_idle"
     }
   ]
