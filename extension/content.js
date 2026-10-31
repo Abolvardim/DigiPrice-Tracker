@@ -25,8 +25,11 @@
       button:disabled { opacity:.55;cursor:wait; }
       .status { font-size:13px;color:#606770;line-height:1.9;padding:8px 0; }
       .error { color:#a52828; }
-      .chart-wrap { width:100%;overflow:hidden; }
-      svg { display:block;width:100%;height:auto;min-height:190px; }
+      .table-wrap { width:100%;overflow:auto;max-height:440px;border:1px solid #eceff1;border-radius:9px; }
+      table { width:100%;border-collapse:collapse;font-size:13px;text-align:right; }
+      th,td { padding:10px 12px;border-bottom:1px solid #eceff1;white-space:nowrap; }
+      th { position:sticky;top:0;background:#f7f8fa;font-weight:700; }
+      tbody tr:last-child td { border-bottom:0; }
       .stats { display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#5f6368; }
       .stats strong { color:#202124;font-size:13px;display:block;margin-top:4px; }
       .foot { color:#858b94;font-size:11px;line-height:1.8;margin-top:12px;border-top:1px solid #f0f1f2;padding-top:9px; }
@@ -44,7 +47,7 @@
         </div>
       </div>
       <div id="status" class="status">در حال دریافت تاریخچهٔ قیمت…</div>
-      <div id="chart" class="chart-wrap"></div>
+      <div id="chart" class="table-wrap"></div>
       <div id="stats" class="stats"></div>
       <div class="foot">قیمت‌ها به تومان نمایش داده می‌شوند. منبع: API عمومی دیجی‌کالا. فقط نقاطی نمایش داده می‌شوند که در دادهٔ منبع قابل‌فروش علامت خورده‌اند؛ نبود داده به معنی صفر بودن قیمت نیست.</div>
     </div>
@@ -58,12 +61,6 @@
   let historyData = null;
 
   const fmt = value => Math.round(value).toLocaleString("fa-IR");
-  const svgNode = (name, attrs = {}) => {
-    const node = document.createElementNS("http://www.w3.org/2000/svg", name);
-    Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
-    return node;
-  };
-
   function renderChart() {
     const variant = historyData?.variants?.find(v => v.id === variantEl.value) || historyData?.variants?.[0];
     const points = variant?.points || [];
@@ -76,52 +73,40 @@
       return;
     }
 
-    statusEl.textContent = points.length + " نقطهٔ قیمتی در دادهٔ منبع موجود است" +
+    statusEl.textContent = points.length + " رکورد قیمت در دادهٔ منبع موجود است" +
       (historyData.today ? " · آخرین تاریخ اعلام‌شده: " + historyData.today : "");
     statusEl.className = "status";
 
-    const width = 900, height = 260, left = 66, right = 22, top = 18, bottom = 42;
+    const table = document.createElement("table");
+    table.innerHTML = "<thead><tr><th>تاریخ</th><th>قیمت (تومان)</th><th>فروشنده</th></tr></thead>";
+    const tbody = document.createElement("tbody");
+    [...points].reverse().forEach(point => {
+      const tr = document.createElement("tr");
+      const day = document.createElement("td");
+      day.textContent = point.day;
+      const price = document.createElement("td");
+      price.textContent = fmt(point.priceRial / 10);
+      const seller = document.createElement("td");
+      seller.textContent = point.seller || "—";
+      tr.append(day, price, seller);
+      tbody.append(tr);
+    });
+    table.append(tbody);
+    chartEl.append(table);
+
     const prices = points.map(p => p.priceRial / 10);
-    const min = Math.min(...prices), max = Math.max(...prices);
-    const spread = Math.max(max - min, max * 0.03, 1);
-    const low = min - spread * 0.12, high = max + spread * 0.12;
-    const x = i => left + (points.length === 1 ? 0 : i * (width - left - right) / (points.length - 1));
-    const y = price => top + (high - price) * (height - top - bottom) / (high - low);
-
-    const svg = svgNode("svg", { viewBox: `0 0 ${width} ${height}`, role:"img", "aria-label":"نمودار تاریخچه قیمت به تومان" });
-    for (let i = 0; i < 4; i++) {
-      const val = low + (high - low) * i / 3;
-      const yy = y(val);
-      svg.append(svgNode("line",{x1:left,y1:yy,x2:width-right,y2:yy,stroke:"#e9ecef","stroke-width":1}));
-      const label = svgNode("text",{x:left-9,y:yy+4,"text-anchor":"end",fill:"#777","font-size":12});
-      label.textContent = fmt(val);
-      svg.append(label);
-    }
-    const path = points.map((p,i) => (i ? "L" : "M") + x(i) + " " + y(p.priceRial/10)).join(" ");
-    svg.append(svgNode("path",{d:path,fill:"none",stroke:"#1677c8","stroke-width":3,"stroke-linecap":"round","stroke-linejoin":"round"}));
-    points.forEach((p,i) => {
-      const circle = svgNode("circle",{cx:x(i),cy:y(p.priceRial/10),r:points.length>20?3.2:4.5,fill:"#1677c8",stroke:"#fff","stroke-width":1.5});
-      const title = svgNode("title");
-      title.textContent = p.day + " — " + fmt(p.priceRial/10) + " تومان";
-      circle.append(title); svg.append(circle);
-    });
-    [0, Math.floor((points.length-1)/2), points.length-1].filter((v,i,a)=>a.indexOf(v)===i).forEach(i=>{
-      const label = svgNode("text",{x:x(i),y:height-13,"text-anchor":i===0?"start":i===points.length-1?"end":"middle",fill:"#777","font-size":12});
-      label.textContent = points[i].day; svg.append(label);
-    });
-    chartEl.append(svg);
-
     const values = [
-      ["آخرین قیمت", prices[prices.length-1]],
-      ["کمترین قیمت", min],
-      ["بیشترین قیمت", max]
+      ["آخرین قیمت", prices[prices.length - 1]],
+      ["کمترین قیمت", Math.min(...prices)],
+      ["بیشترین قیمت", Math.max(...prices)]
     ];
-    values.forEach(([label,value])=>{
-      const box=document.createElement("div");
-      box.textContent=label;
-      const strong=document.createElement("strong");
-      strong.textContent=fmt(value)+" تومان";
-      box.append(strong); statsEl.append(box);
+    values.forEach(([label, value]) => {
+      const box = document.createElement("div");
+      box.textContent = label;
+      const strong = document.createElement("strong");
+      strong.textContent = fmt(value) + " تومان";
+      box.append(strong);
+      statsEl.append(box);
     });
   }
 
