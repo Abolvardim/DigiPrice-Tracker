@@ -10,7 +10,7 @@ This extension adds a price-history panel to Digikala product pages. It requests
 4. Select **Load unpacked** and choose the repository's `extension` folder.
 5. Open or refresh a Digikala product page, for example `https://www.digikala.com/product/dkp-20109389/`.
 
-The DigiPrice panel should appear near the top of the page.
+The DigiPrice panel appears on product pages. It also detects product-to-product navigation within Digikala without requiring a full reload.
 
 ## What it currently does
 
