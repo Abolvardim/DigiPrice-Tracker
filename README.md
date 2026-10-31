@@ -15,7 +15,7 @@ The first user-facing implementation is a Chrome / Edge Manifest V3 extension th
 5. Click **Load unpacked** and select the extracted `extension` folder.
 6. Open or refresh a Digikala product page such as `https://www.digikala.com/product/dkp-20109389/`.
 
-The panel should appear near the top of the product page. If it does not appear, first refresh the product page once after installing the extension.
+The panel should appear near the top of the product page. It also follows product-to-product navigation inside Digikala without a full page reload. If it does not appear, refresh the product page once after installation.
 
 ### Current functionality
 
