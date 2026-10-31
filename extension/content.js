@@ -132,33 +132,61 @@
     statsEl.replaceChildren();
   }
 
+  function extensionContextAlive() {
+    try {
+      return Boolean(chrome?.runtime?.id);
+    } catch {
+      return false;
+    }
+  }
+
   function load() {
+    if (!extensionContextAlive()) {
+      reloadEl.disabled = true;
+      showError("افزونه به‌روزرسانی شده است؛ این صفحه را یک‌بار کامل Refresh کن.");
+      return;
+    }
     reloadEl.disabled = true;
     statusEl.textContent = "در حال دریافت تاریخچهٔ قیمت…";
     statusEl.className = "status";
-    chrome.runtime.sendMessage({ type:"DIGIPRICE_GET_HISTORY", productId }, response => {
-      reloadEl.disabled = false;
-      if (chrome.runtime.lastError) {
-        showError("ارتباط با افزونه برقرار نشد. صفحه را Refresh کن.");
-        return;
-      }
-      if (!response?.ok) {
-        showError(response?.error || "دریافت تاریخچه ناموفق بود.");
-        return;
-      }
-      historyData = response.data;
-      const variants = historyData.variants || [];
-      variantEl.replaceChildren();
-      variants.forEach((variant,index)=>{
-        const option=document.createElement("option");
-        option.value=variant.id;
-        option.textContent=variant.title + (variant.points.length ? " ("+variant.points.length+")" : " (بدون داده)");
-        variantEl.append(option);
-        if (index===0) variantEl.value=variant.id;
+    try {
+      chrome.runtime.sendMessage({ type:"DIGIPRICE_GET_HISTORY", productId }, response => {
+        try {
+          if (!extensionContextAlive()) {
+            showError("افزونه به‌روزرسانی شده است؛ این صفحه را یک‌بار کامل Refresh کن.");
+            return;
+          }
+          if (chrome.runtime.lastError) {
+            reloadEl.disabled = false;
+            showError("ارتباط با افزونه برقرار نشد. صفحه را Refresh کن.");
+            return;
+          }
+          reloadEl.disabled = false;
+          if (!response?.ok) {
+            showError(response?.error || "دریافت تاریخچه ناموفق بود.");
+            return;
+          }
+          historyData = response.data;
+          const variants = historyData.variants || [];
+          variantEl.replaceChildren();
+          variants.forEach((variant,index)=>{
+            const option=document.createElement("option");
+            option.value=variant.id;
+            option.textContent=variant.title + (variant.points.length ? " ("+variant.points.length+")" : " (بدون داده)");
+            variantEl.append(option);
+            if (index===0) variantEl.value=variant.id;
+          });
+          variantEl.hidden = variants.length < 2;
+          renderChart();
+        } catch {
+          reloadEl.disabled = false;
+          showError("ارتباط افزونه قطع شد؛ صفحه را کامل Refresh کن.");
+        }
       });
-      variantEl.hidden = variants.length < 2;
-      renderChart();
-    });
+    } catch {
+      reloadEl.disabled = false;
+      showError("افزونه به‌روزرسانی شده است؛ این صفحه را یک‌بار کامل Refresh کن.");
+    }
   }
 
   variantEl.addEventListener("change", renderChart);
@@ -196,7 +224,11 @@
 
   // Digikala can change product routes without a full page reload.
   let previousProductId = productId;
-  setInterval(() => {
+  const routeTimer = setInterval(() => {
+    if (!extensionContextAlive()) {
+      clearInterval(routeTimer);
+      return;
+    }
     const nextProductId = getProductId();
     if (nextProductId === previousProductId) return;
     previousProductId = nextProductId;
