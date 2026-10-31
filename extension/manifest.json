@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DigiPrice — Digikala Price History",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Shows available Digikala price history directly on product pages.",
   "permissions": [
     "storage"
