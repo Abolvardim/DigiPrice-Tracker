@@ -36,35 +36,40 @@ HEADERS = {
 
 
 def summarize(payload: dict) -> dict:
+    """Summarize the raw Digikala price-chart payload without inventing observations."""
     data = payload.get("data") or {}
-    variants = data.get("variants") or []
+    charts = data.get("price_chart") or []
     valid = []
-    for variant in variants:
-        days = variant.get("days") or []
-        prices = []
-        for day in days:
-            if isinstance(day, dict):
-                value = day.get("price") or day.get("amount") or day.get("value")
-                if isinstance(value, (int, float)) and value > 0:
-                    prices.append(value)
-            elif isinstance(day, (int, float)) and day > 0:
-                prices.append(day)
-        lowest = variant.get("lowest")
-        if prices or (isinstance(lowest, (int, float)) and lowest > 0):
+    for chart in charts:
+        history = chart.get("history") or []
+        observations = [
+            {
+                "day": point.get("day"),
+                "selling_price_rial": point.get("selling_price"),
+            }
+            for point in history
+            if point.get("is_marketable")
+            and isinstance(point.get("selling_price"), (int, float))
+            and point.get("selling_price") > 0
+        ]
+        if observations:
+            prices = [point["selling_price_rial"] for point in observations]
             valid.append({
-                "variant_id": variant.get("id"),
-                "days_count": len(days),
-                "observed_price_points": len(prices),
-                "lowest": lowest,
-                "highest": variant.get("highest"),
+                "variant_id": chart.get("id"),
+                "variant_title": chart.get("title"),
+                "history_points": len(observations),
+                "first_day": observations[0]["day"],
+                "last_day": observations[-1]["day"],
+                "lowest_rial": min(prices),
+                "highest_rial": max(prices),
             })
     return {
-        "variant_count": len(variants),
+        "today": data.get("today"),
+        "variant_count": len(charts),
         "variants_with_history": len(valid),
         "history": valid,
-        "top_level_keys": sorted(data.keys()) if isinstance(data, dict) else [],
+        "top_level_data_keys": sorted(data.keys()) if isinstance(data, dict) else [],
     }
-
 
 def main() -> int:
     session = requests.Session(impersonate="chrome")
