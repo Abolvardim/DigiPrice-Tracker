@@ -14,7 +14,8 @@ from pathlib import Path
 from curl_cffi import requests
 
 API = "https://api.digikala.com"
-SITE = "https://www.digikala.com/"
+SITE = "https://abolvardim.github.io/DigiPrice-Tracker/"
+ORIGIN = "https://abolvardim.github.io"
 PRODUCT_IDS = [
     20109389,  # Samsung Galaxy A07 (upstream project's live-test fixture)
     20110013,  # another product used by upstream comparison tests
@@ -25,7 +26,7 @@ PRODUCT_IDS = [
 HEADERS = {
     "Accept": "application/json",
     "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
-    "Origin": "https://www.digikala.com",
+    "Origin": ORIGIN,
     "Referer": SITE,
     "x-web-client": "desktop",
     "x-web-client-id": "web",
@@ -81,6 +82,8 @@ def main() -> int:
             response = session.get(url, headers=HEADERS, timeout=25, allow_redirects=True)
             item["http_status"] = response.status_code
             item["final_url"] = str(response.url)
+            item["cors_allow_origin"] = response.headers.get("access-control-allow-origin")
+            item["cors_allow_methods"] = response.headers.get("access-control-allow-methods")
             if response.status_code != 200:
                 item["status"] = "http_error"
                 item["body_preview"] = response.text[:300]
@@ -102,12 +105,34 @@ def main() -> int:
         except Exception as exc:  # record network errors per ID; continue with remaining probes
             item["status"] = "network_error"
             item["error"] = f"{type(exc).__name__}: {exc}"
+        # Probe browser preflight once: the custom x-web-client headers trigger CORS OPTIONS.
+        if product_id == PRODUCT_IDS[0]:
+            try:
+                preflight = session.options(
+                    url,
+                    headers={
+                        "Origin": ORIGIN,
+                        "Access-Control-Request-Method": "GET",
+                        "Access-Control-Request-Headers": "x-web-client,x-web-client-id",
+                        "Referer": SITE,
+                    },
+                    timeout=20,
+                    allow_redirects=True,
+                )
+                item["cors_preflight"] = {
+                    "http_status": preflight.status_code,
+                    "allow_origin": preflight.headers.get("access-control-allow-origin"),
+                    "allow_methods": preflight.headers.get("access-control-allow-methods"),
+                    "allow_headers": preflight.headers.get("access-control-allow-headers"),
+                }
+            except Exception as exc:
+                item["cors_preflight"] = {"error": f"{type(exc).__name__}: {exc}"}
         results.append(item)
         time.sleep(2)
 
     output = {
         "checked_at_utc": datetime.now(timezone.utc).isoformat(),
-        "source": "Digikala public product price-chart endpoint",
+        "source": "Digikala public price-chart endpoint; CORS tested for GitHub Pages origin",
         "results": results,
         "summary": {
             "products_tested": len(results),
