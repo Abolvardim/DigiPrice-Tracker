@@ -22,6 +22,7 @@ PRODUCT_IDS = [
     20110012,  # another product used by upstream comparison tests
     21013179,  # another product used by upstream comparison tests
     4369031,   # Digikala Fresh product (different product vertical)
+    17037596,  # user's Baseus Adaman 140W power bank; compare GitHub runner vs browser 429
 ]
 HEADERS = {
     "Accept": "application/json",
