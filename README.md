@@ -36,3 +36,30 @@ The script writes `validation-results.json` and exits non-zero if no tested prod
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+
+## Cloudflare Worker API proxy (free tier)
+
+The browser cannot call Digikala's API directly because Digikala does not return the required CORS headers. The Worker in `worker/index.js` is a small, read-only proxy that adds those headers for the GitHub Pages site.
+
+### Deploy it from the Cloudflare dashboard
+
+1. Create/sign in to a Cloudflare account: https://dash.cloudflare.com/sign-up
+2. Open **Workers & Pages** → **Create application** → **Create Worker** → **Deploy**.
+3. Name it `digiprice-api` and deploy the starter Worker once.
+4. Open **Edit code** (or **Quick edit**), replace the starter code with the complete contents of [worker/index.js](worker/index.js), then **Deploy**.
+5. Open the Worker's **Settings** and ensure its usage plan remains **Workers Free**. Do not upgrade to Workers Paid or enable paid add-ons.
+6. Test the deployed address:
+   - `https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/health`
+   - `https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/api/history?id=20109389`
+
+Cloudflare's published Free allowance is 100,000 Worker requests per day and 10 ms CPU time per invocation. This project is designed for low-volume personal lookup; requests beyond the free allowance may fail until the daily reset. No credit card or paid service should be needed for the intended Free setup; if Cloudflare asks you to add a payment method or choose a paid plan, stop and do not proceed.
+
+### Worker endpoints
+
+- `GET /health` — deployment check.
+- `GET /api/search?q=عبارت` — first page of Digikala search results (up to 20).
+- `GET /api/history?id=20109389` — upstream price-chart history for any product ID / Digikala product URL.
+- `GET /api/product?id=20109389` — product API data.
+
+The Worker allows browser requests only from `https://abolvardim.github.io`. It does not require Digikala login, credentials, or a VPN. Upstream availability can still change if Digikala blocks or modifies its public API.
