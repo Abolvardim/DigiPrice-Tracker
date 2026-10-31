@@ -16,8 +16,8 @@ if not re.fullmatch(r"[a-f0-9-]{16,64}", REQUEST_ID):
 headers = {
     "Accept": "application/json",
     "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
-    "Origin": "https://www.digikala.com",
-    "Referer": f"https://www.digikala.com/product/dkp-{PRODUCT_ID}/",
+    "Origin": "https://abolvardim.github.io",
+    "Referer": "https://abolvardim.github.io/DigiPrice-Tracker/",
     "x-web-client": "desktop",
     "x-web-client-id": "web",
     "sec-fetch-dest": "empty",
@@ -34,7 +34,7 @@ for attempt in range(3):
             payload = response.json()
             break
         last_error = f"Digikala HTTP {response.status_code}: {response.text[:200]}"
-        if response.status_code not in (429, 500, 502, 503, 504):
+        if response.status_code == 429 or response.status_code not in (500, 502, 503, 504):
             raise RuntimeError(last_error)
     except Exception as exc:
         last_error = str(exc)
