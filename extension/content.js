@@ -59,6 +59,7 @@
   const variantEl = shadow.getElementById("variant");
   const reloadEl = shadow.getElementById("reload");
   let historyData = null;
+  let loadGeneration = 0;
 
   const fmt = value => Math.round(value).toLocaleString("fa-IR");
   function renderChart() {
@@ -125,52 +126,96 @@
     }
   }
 
-  function load() {
+  function sendRuntimeMessage(message) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error("پاسخی از افزونه دریافت نشد؛ یک‌بار صفحه را Refresh کن."));
+      }, 20000);
+      try {
+        chrome.runtime.sendMessage(message, response => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          if (chrome.runtime.lastError) {
+            reject(new Error("ارتباط با افزونه برقرار نشد: " + chrome.runtime.lastError.message));
+            return;
+          }
+          resolve(response);
+        });
+      } catch (error) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(error);
+      }
+    });
+  }
+
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  async function load() {
+    const generation = ++loadGeneration;
     if (!extensionContextAlive()) {
       reloadEl.disabled = true;
       showError("افزونه به‌روزرسانی شده است؛ این صفحه را یک‌بار کامل Refresh کن.");
       return;
     }
     reloadEl.disabled = true;
-    statusEl.textContent = "در حال دریافت تاریخچهٔ قیمت…";
+    statusEl.textContent = "در حال ارسال درخواست به GitHub…";
     statusEl.className = "status";
+    chartEl.replaceChildren();
+    statsEl.replaceChildren();
+
     try {
-      chrome.runtime.sendMessage({ type:"DIGIPRICE_GET_HISTORY", productId }, response => {
-        try {
-          if (!extensionContextAlive()) {
-            showError("افزونه به‌روزرسانی شده است؛ این صفحه را یک‌بار کامل Refresh کن.");
-            return;
-          }
-          if (chrome.runtime.lastError) {
-            reloadEl.disabled = false;
-            showError("ارتباط با افزونه برقرار نشد. صفحه را Refresh کن.");
-            return;
-          }
-          reloadEl.disabled = false;
-          if (!response?.ok) {
-            showError(response?.error || "دریافت تاریخچه ناموفق بود.");
-            return;
-          }
-          historyData = response.data;
+      const started = await sendRuntimeMessage({
+        type: "DIGIPRICE_START_HISTORY",
+        productId
+      });
+      if (generation !== loadGeneration) return;
+      if (!started?.ok) throw new Error(started?.error || "شروع دریافت تاریخچه ناموفق بود.");
+
+      const requestId = started.requestId;
+      const deadline = Date.now() + 4 * 60 * 1000;
+      statusEl.textContent = "درخواست ثبت شد؛ GitHub در حال دریافت تاریخچه از دیجی‌کالا است…";
+
+      while (Date.now() < deadline) {
+        if (generation !== loadGeneration) return;
+        await wait(2500);
+        const result = await sendRuntimeMessage({
+          type: "DIGIPRICE_POLL_HISTORY",
+          productId: started.productId,
+          requestId
+        });
+        if (generation !== loadGeneration) return;
+        if (!result?.ok) throw new Error(result?.error || "بررسی وضعیت دریافت تاریخچه ناموفق بود.");
+
+        if (result.state === "done") {
+          historyData = result.data;
           const variants = historyData.variants || [];
           variantEl.replaceChildren();
-          variants.forEach((variant,index)=>{
-            const option=document.createElement("option");
-            option.value=variant.id;
-            option.textContent=variant.title + (variant.points.length ? " ("+variant.points.length+")" : " (بدون داده)");
+          variants.forEach((variant, index) => {
+            const option = document.createElement("option");
+            option.value = variant.id;
+            option.textContent = variant.title + (variant.points.length ? " (" + variant.points.length + ")" : " (بدون داده)");
             variantEl.append(option);
-            if (index===0) variantEl.value=variant.id;
+            if (index === 0) variantEl.value = variant.id;
           });
           variantEl.hidden = variants.length < 2;
           renderChart();
-        } catch {
-          reloadEl.disabled = false;
-          showError("ارتباط افزونه قطع شد؛ صفحه را کامل Refresh کن.");
+          return;
         }
-      });
-    } catch {
-      reloadEl.disabled = false;
-      showError("افزونه به‌روزرسانی شده است؛ این صفحه را یک‌بار کامل Refresh کن.");
+        statusEl.textContent = result.state === "queued"
+          ? "درخواست در صف GitHub قرار دارد؛ منتظر شروع اجرا…"
+          : "GitHub در حال دریافت و آماده‌سازی تاریخچهٔ قیمت است…";
+      }
+      throw new Error("دریافت تاریخچه بیش از ۴ دقیقه طول کشید. وضعیت اجرا را در GitHub Actions بررسی کن.");
+    } catch (error) {
+      if (generation === loadGeneration) showError(error.message || "دریافت تاریخچه ناموفق بود.");
+    } finally {
+      if (generation === loadGeneration) reloadEl.disabled = false;
     }
   }
 
@@ -220,6 +265,7 @@
     productId = nextProductId;
     historyData = null;
     if (!productId) {
+      loadGeneration++;
       host.remove();
       return;
     }
