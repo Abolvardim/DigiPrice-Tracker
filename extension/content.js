@@ -79,7 +79,7 @@
       return;
     }
 
-    // Draw locally from fetched JSON: no external chart library and no extra request.
+    // Lightweight native SVG: guides and hover crosshair use the already-loaded data.
     const ns = "http://www.w3.org/2000/svg";
     const width = 900, height = 270;
     const margin = { top: 18, right: 78, bottom: 38, left: 18 };
@@ -92,11 +92,13 @@
     const low = Math.max(0, min - padding), high = max + padding;
     const x = index => margin.left + (points.length < 2 ? plotWidth / 2 : index * plotWidth / (points.length - 1));
     const y = value => margin.top + (high - value) / (high - low || 1) * plotHeight;
+    const plotBottom = margin.top + plotHeight;
+    const plotRight = width - margin.right;
     const svg = document.createElementNS(ns, "svg");
     svg.setAttribute("class", "price-chart");
     svg.setAttribute("viewBox", "0 0 " + width + " " + height);
     svg.setAttribute("role", "img");
-    svg.setAttribute("aria-label", "نمودار تغییرات قیمت محصول در تاریخچهٔ موجود");
+    svg.setAttribute("aria-label", "نمودار تعاملی تغییرات قیمت؛ برای دیدن تاریخ و قیمت روی هر نقطه بروید");
 
     const add = (tag, attrs, parent = svg) => {
       const el = document.createElementNS(ns, tag);
@@ -105,13 +107,28 @@
       return el;
     };
 
+    // Existing horizontal scale guides.
     for (let i = 0; i <= 4; i++) {
       const value = low + (high - low) * i / 4;
       const yy = y(value);
-      add("line", { x1: margin.left, y1: yy, x2: width - margin.right, y2: yy, stroke: "#e9edf1", "stroke-width": 1 });
+      add("line", { x1: margin.left, y1: yy, x2: plotRight, y2: yy, stroke: "#e9edf1", "stroke-width": 1 });
       const label = add("text", { x: width - 8, y: yy + 4, fill: "#737b84", "font-size": 13, "text-anchor": "end", direction: "rtl" });
       label.textContent = fmt(value);
     }
+
+    // Faint dotted projections from every observation to both axes.
+    const guides = add("g", { "aria-hidden": "true" });
+    points.forEach((point, index) => {
+      const px = x(index), py = y(Number(point.priceRial) / 10);
+      add("line", {
+        x1: px, y1: py, x2: px, y2: plotBottom,
+        stroke: "#1769aa", "stroke-width": 1, "stroke-dasharray": "3 5", opacity: 0.19
+      }, guides);
+      add("line", {
+        x1: px, y1: py, x2: plotRight, y2: py,
+        stroke: "#1769aa", "stroke-width": 1, "stroke-dasharray": "3 5", opacity: 0.13
+      }, guides);
+    });
 
     const linePoints = points.map((point, index) => x(index) + "," + y(Number(point.priceRial) / 10)).join(" ");
     add("polyline", {
@@ -119,15 +136,75 @@
       "stroke-linecap": "round", "stroke-linejoin": "round"
     });
 
+    // Hover overlay: two emphasized guides plus a compact date/price label.
+    const hover = add("g", { "pointer-events": "none", visibility: "hidden" });
+    const hoverVertical = add("line", {
+      x1: 0, y1: 0, x2: 0, y2: plotBottom,
+      stroke: "#1769aa", "stroke-width": 1.7, "stroke-dasharray": "4 4", opacity: 0.8
+    }, hover);
+    const hoverHorizontal = add("line", {
+      x1: margin.left, y1: 0, x2: plotRight, y2: 0,
+      stroke: "#1769aa", "stroke-width": 1.7, "stroke-dasharray": "4 4", opacity: 0.8
+    }, hover);
+    const focusDot = add("circle", {
+      cx: 0, cy: 0, r: 6, fill: "#fff", stroke: "#1769aa", "stroke-width": 3
+    }, hover);
+    const tooltip = add("g", {}, hover);
+    const tooltipRect = add("rect", {
+      x: 0, y: 0, width: 196, height: 48, rx: 7,
+      fill: "#202b38", opacity: 0.96
+    }, tooltip);
+    const tooltipDate = add("text", {
+      x: 98, y: 18, fill: "#fff", "font-size": 12, "font-weight": 600,
+      "text-anchor": "middle", direction: "ltr"
+    }, tooltip);
+    const tooltipPrice = add("text", {
+      x: 98, y: 37, fill: "#fff", "font-size": 13, "font-weight": 700,
+      "text-anchor": "middle", direction: "rtl"
+    }, tooltip);
+
+    function showPoint(index) {
+      const point = points[index];
+      const px = x(index), py = y(Number(point.priceRial) / 10);
+      hoverVertical.setAttribute("x1", px);
+      hoverVertical.setAttribute("x2", px);
+      hoverHorizontal.setAttribute("y1", py);
+      hoverHorizontal.setAttribute("y2", py);
+      focusDot.setAttribute("cx", px);
+      focusDot.setAttribute("cy", py);
+      const boxX = Math.max(margin.left, Math.min(plotRight - 196, px - 98));
+      const boxY = py - 60 < margin.top ? py + 13 : py - 60;
+      tooltip.setAttribute("transform", "translate(" + boxX + " " + boxY + ")");
+      tooltipDate.textContent = point.day;
+      tooltipPrice.textContent = fmt(Number(point.priceRial) / 10) + " تومان";
+      hover.setAttribute("visibility", "visible");
+    }
+    function hidePoint() {
+      hover.setAttribute("visibility", "hidden");
+    }
+
     points.forEach((point, index) => {
       const value = Number(point.priceRial) / 10;
       const circle = add("circle", {
-        cx: x(index), cy: y(value), r: points.length > 20 ? 3.5 : 5,
-        fill: "#1769aa", stroke: "#fff", "stroke-width": 1.5
+        cx: x(index), cy: y(value), r: points.length > 20 ? 4.5 : 5.5,
+        fill: "#1769aa", stroke: "#fff", "stroke-width": 1.5,
+        tabindex: 0, role: "button", cursor: "crosshair"
       });
       const title = document.createElementNS(ns, "title");
       title.textContent = point.day + " — " + fmt(value) + " تومان" + (point.seller ? " — " + point.seller : "");
       circle.append(title);
+      circle.addEventListener("pointerenter", () => showPoint(index));
+      circle.addEventListener("pointermove", () => showPoint(index));
+      circle.addEventListener("pointerleave", hidePoint);
+      circle.addEventListener("focus", () => showPoint(index));
+      circle.addEventListener("blur", hidePoint);
+      circle.addEventListener("keydown", event => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          showPoint(index);
+        }
+        if (event.key === "Escape") hidePoint();
+      });
     });
 
     [0, Math.floor((points.length - 1) / 2), points.length - 1].forEach(index => {
