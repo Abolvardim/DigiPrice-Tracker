@@ -43,8 +43,12 @@ async function digikala(path, params) {
       "x-web-client": "desktop",
       "x-web-client-id": "web",
     },
-    redirect: "follow",
+    redirect: "manual",
   });
+  if (response.status >= 300 && response.status < 400) {
+    const location = response.headers.get("Location") || "(no Location header)";
+    throw new Error(`Digikala redirect diagnostic: HTTP ${response.status}; Location: ${location}`);
+  }
   const bodyText = await response.text();
   let body;
   try { body = JSON.parse(bodyText); }
